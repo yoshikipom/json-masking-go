@@ -1,4 +1,4 @@
-module github.com/yoshikipom/json-masking
+module github.com/yoshikipom/json-masking-go
 
 go 1.19
 
