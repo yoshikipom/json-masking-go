@@ -6,19 +6,21 @@ import (
 	"strings"
 )
 
-const defaltMaskingValue = "*"
+const defaltmaskingValue = "*"
 
-type Masking struct {
-	allowedFieldSet map[string]struct{}
+type masking struct {
+	deniedKeySet map[string]struct{}
 }
 
-func New() *Masking {
-	fieldSet := make(map[string]struct{})
-	fieldSet["email"] = struct{}{}
-	return &Masking{allowedFieldSet: fieldSet}
+func New(deniedKeys []string) *masking {
+	keySet := make(map[string]struct{})
+	for _, deniedKey := range deniedKeys {
+		keySet[deniedKey] = struct{}{}
+	}
+	return &masking{deniedKeySet: keySet}
 }
 
-func (m *Masking) Replace(body []byte) []byte {
+func (m *masking) Replace(body []byte) []byte {
 	var data interface{}
 	err := json.Unmarshal(body, &data)
 	if err != nil {
@@ -34,7 +36,7 @@ func (m *Masking) Replace(body []byte) []byte {
 	return output
 }
 
-func (m *Masking) processData(jsonPath string, node *interface{}) interface{} {
+func (m *masking) processData(jsonPath string, node *interface{}) interface{} {
 	switch n := (*node).(type) {
 	case map[string]interface{}:
 		for k, v := range n {
@@ -54,15 +56,15 @@ func (m *Masking) processData(jsonPath string, node *interface{}) interface{} {
 		}
 	default:
 		jsonPath = strings.TrimPrefix(jsonPath, ".")
-		if !m.allowd(jsonPath) {
-			return defaltMaskingValue
+		if m.denied(jsonPath) {
+			return defaltmaskingValue
 		}
 		return nil
 	}
 	return nil
 }
 
-func (m *Masking) allowd(jsonPath string) bool {
-	_, ok := m.allowedFieldSet[jsonPath]
+func (m *masking) denied(jsonPath string) bool {
+	_, ok := m.deniedKeySet[jsonPath]
 	return ok
 }
