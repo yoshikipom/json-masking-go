@@ -13,9 +13,10 @@ const defaltmaskingValue = "*"
 type masking struct {
 	deniedKeySet map[string]struct{}
 	useRegex     bool
+	format       bool
 }
 
-func New(deniedKeys []string, useRejex bool) *masking {
+func New(deniedKeys []string, useRejex bool, format bool) *masking {
 	keySet := make(map[string]struct{})
 	for _, deniedKey := range deniedKeys {
 		keySet[deniedKey] = struct{}{}
@@ -23,6 +24,7 @@ func New(deniedKeys []string, useRejex bool) *masking {
 	return &masking{
 		deniedKeySet: keySet,
 		useRegex:     useRejex,
+		format:       format,
 	}
 }
 
@@ -39,9 +41,17 @@ func (m *masking) Replace(body []byte) []byte {
 	if err != nil {
 		panic(err)
 	}
-	var output bytes.Buffer
-	err = json.Indent(&output, b, "", "  ")
-	return output.Bytes()
+
+	fmt.Println("format")
+	fmt.Println(m.format)
+
+	if m.format {
+		var output bytes.Buffer
+		err = json.Indent(&output, b, "", "  ")
+		return output.Bytes()
+	} else {
+		return b
+	}
 }
 
 func (m *masking) processData(jsonPath string, node *interface{}) interface{} {

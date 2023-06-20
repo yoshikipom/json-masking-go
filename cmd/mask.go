@@ -44,7 +44,8 @@ to quickly create a Cobra application.`,
 		// masking information
 		denyList, _ := cmd.Flags().GetStringArray("deny")
 		useRegex, _ := cmd.Flags().GetBool("regex")
-		m := masking.New(denyList, useRegex)
+		format, _ := cmd.Flags().GetBool("format")
+		m := masking.New(denyList, useRegex, format)
 
 		// input json
 		var json []byte
@@ -70,4 +71,5 @@ func init() {
 
 	maskCmd.Flags().StringArrayP("deny", "d", []string{}, "deny key list")
 	maskCmd.Flags().Bool("regex", false, "flag to use regex mode")
+	maskCmd.Flags().Bool("format", false, "flag for formatting of output")
 }
