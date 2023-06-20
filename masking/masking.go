@@ -1,8 +1,10 @@
 package masking
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -10,14 +12,18 @@ const defaltmaskingValue = "*"
 
 type masking struct {
 	deniedKeySet map[string]struct{}
+	useRegex     bool
 }
 
-func New(deniedKeys []string) *masking {
+func New(deniedKeys []string, useRejex bool) *masking {
 	keySet := make(map[string]struct{})
 	for _, deniedKey := range deniedKeys {
 		keySet[deniedKey] = struct{}{}
 	}
-	return &masking{deniedKeySet: keySet}
+	return &masking{
+		deniedKeySet: keySet,
+		useRegex:     useRejex,
+	}
 }
 
 func (m *masking) Replace(body []byte) []byte {
@@ -29,11 +35,13 @@ func (m *masking) Replace(body []byte) []byte {
 
 	m.processData("", &data)
 
-	output, err := json.Marshal(data)
+	b, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
 	}
-	return output
+	var output bytes.Buffer
+	err = json.Indent(&output, b, "", "  ")
+	return output.Bytes()
 }
 
 func (m *masking) processData(jsonPath string, node *interface{}) interface{} {
@@ -56,6 +64,7 @@ func (m *masking) processData(jsonPath string, node *interface{}) interface{} {
 		}
 	default:
 		jsonPath = strings.TrimPrefix(jsonPath, ".")
+		fmt.Println(jsonPath)
 		if m.denied(jsonPath) {
 			return defaltmaskingValue
 		}
@@ -65,6 +74,16 @@ func (m *masking) processData(jsonPath string, node *interface{}) interface{} {
 }
 
 func (m *masking) denied(jsonPath string) bool {
-	_, ok := m.deniedKeySet[jsonPath]
-	return ok
+	if m.useRegex {
+		for k, _ := range m.deniedKeySet {
+			r := regexp.MustCompile(k)
+			if r.MatchString(jsonPath) {
+				return true
+			}
+		}
+		return false
+	} else {
+		_, ok := m.deniedKeySet[jsonPath]
+		return ok
+	}
 }

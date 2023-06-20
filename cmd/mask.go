@@ -23,6 +23,8 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/yoshikipom/json-masking-go/masking"
@@ -39,12 +41,26 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// fmt.Printf("mask called. args: %+v\n", args)
-
+		// masking information
 		denyList, _ := cmd.Flags().GetStringArray("deny")
-		m := masking.New(denyList)
+		useRegex, _ := cmd.Flags().GetBool("regex")
+		m := masking.New(denyList, useRegex)
 
-		replaced := m.Replace([]byte(args[0]))
+		// input json
+		var json []byte
+		if len(args) > 0 {
+			json = []byte(args[0])
+		} else {
+			bytes, err := ioutil.ReadAll(os.Stdin)
+			json = bytes
+			if err != nil {
+				fmt.Println("Error reading from stdin:", err)
+				os.Exit(1)
+			}
+		}
+		fmt.Printf("Original JSON: %v\n", string(json))
+
+		replaced := m.Replace(json)
 		fmt.Printf("%s\n", string(replaced))
 	},
 }
@@ -52,13 +68,6 @@ to quickly create a Cobra application.`,
 func init() {
 	rootCmd.AddCommand(maskCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// maskCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 	maskCmd.Flags().StringArrayP("deny", "d", []string{}, "deny key list")
+	maskCmd.Flags().Bool("regex", false, "flag to use regex mode")
 }
