@@ -6,29 +6,56 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/yoshikipom/json-masking-go/config"
 )
 
 const defaltmaskingValue = "*"
 
-type masking struct {
+type Masking struct {
 	deniedKeySet map[string]struct{}
 	useRegex     bool
 	format       bool
 }
 
-func New(deniedKeys []string, useRejex bool, format bool) *masking {
+type MaskingInput struct {
+	DeniedKeyList []string
+	UseRegex      bool
+	Format        bool
+}
+
+func New(input *MaskingInput) *Masking {
 	keySet := make(map[string]struct{})
-	for _, deniedKey := range deniedKeys {
+	for _, deniedKey := range input.DeniedKeyList {
 		keySet[deniedKey] = struct{}{}
 	}
-	return &masking{
+	return &Masking{
 		deniedKeySet: keySet,
-		useRegex:     useRejex,
-		format:       format,
+		useRegex:     input.UseRegex,
+		format:       input.Format,
+	}
+
+}
+
+func NewWithFile(configFile string) *Masking {
+	err := config.Initialize(configFile)
+	if err != nil {
+		panic(err)
+	}
+	c := config.GetConfig()
+
+	keySet := make(map[string]struct{})
+	for _, deniedKey := range c.DeniedKeyList {
+		keySet[deniedKey] = struct{}{}
+	}
+	return &Masking{
+		deniedKeySet: keySet,
+		useRegex:     c.UseRegex,
+		format:       c.Format,
 	}
 }
 
-func (m *masking) Replace(body []byte) []byte {
+func (m *Masking) Replace(body []byte) []byte {
 	var data interface{}
 	err := json.Unmarshal(body, &data)
 	if err != nil {
@@ -42,19 +69,19 @@ func (m *masking) Replace(body []byte) []byte {
 		panic(err)
 	}
 
-	fmt.Println("format")
-	fmt.Println(m.format)
-
 	if m.format {
 		var output bytes.Buffer
 		err = json.Indent(&output, b, "", "  ")
+		if err != nil {
+			panic(err)
+		}
 		return output.Bytes()
 	} else {
 		return b
 	}
 }
 
-func (m *masking) processData(jsonPath string, node *interface{}) interface{} {
+func (m *Masking) processData(jsonPath string, node *interface{}) interface{} {
 	switch n := (*node).(type) {
 	case map[string]interface{}:
 		for k, v := range n {
@@ -74,7 +101,7 @@ func (m *masking) processData(jsonPath string, node *interface{}) interface{} {
 		}
 	default:
 		jsonPath = strings.TrimPrefix(jsonPath, ".")
-		fmt.Println(jsonPath)
+		// fmt.Println(jsonPath)
 		if m.denied(jsonPath) {
 			return defaltmaskingValue
 		}
@@ -83,9 +110,9 @@ func (m *masking) processData(jsonPath string, node *interface{}) interface{} {
 	return nil
 }
 
-func (m *masking) denied(jsonPath string) bool {
+func (m *Masking) denied(jsonPath string) bool {
 	if m.useRegex {
-		for k, _ := range m.deniedKeySet {
+		for k := range m.deniedKeySet {
 			r := regexp.MustCompile(k)
 			if r.MatchString(jsonPath) {
 				return true

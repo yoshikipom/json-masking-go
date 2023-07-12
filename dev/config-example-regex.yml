@@ -1,0 +1,4 @@
+denied_key_list:
+  - email$
+use_regex: true
+format: true

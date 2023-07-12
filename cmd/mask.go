@@ -43,9 +43,21 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// masking information
 		denyList, _ := cmd.Flags().GetStringArray("deny")
+		configFile, _ := cmd.Flags().GetString("config")
 		useRegex, _ := cmd.Flags().GetBool("regex")
 		format, _ := cmd.Flags().GetBool("format")
-		m := masking.New(denyList, useRegex, format)
+
+		var m *masking.Masking
+		if configFile == "" {
+			input := &masking.MaskingInput{
+				DeniedKeyList: denyList,
+				UseRegex:      useRegex,
+				Format:        format,
+			}
+			m = masking.New(input)
+		} else {
+			m = masking.NewWithFile(configFile)
+		}
 
 		// input json
 		var json []byte
@@ -59,7 +71,7 @@ to quickly create a Cobra application.`,
 				os.Exit(1)
 			}
 		}
-		fmt.Printf("Original JSON: %v\n", string(json))
+		// fmt.Printf("Original JSON: %v\n", string(json))
 
 		replaced := m.Replace(json)
 		fmt.Printf("%s\n", string(replaced))
@@ -70,6 +82,7 @@ func init() {
 	rootCmd.AddCommand(maskCmd)
 
 	maskCmd.Flags().StringArrayP("deny", "d", []string{}, "deny key list")
+	maskCmd.Flags().String("config", "", "config file")
 	maskCmd.Flags().Bool("regex", false, "flag to use regex mode")
 	maskCmd.Flags().Bool("format", false, "flag for formatting of output")
 }

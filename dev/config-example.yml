@@ -1,0 +1,3 @@
+denied_key_list:
+  - email
+format: true
