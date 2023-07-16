@@ -1,0 +1,4 @@
+denied_key_list:
+  - friends[0]  
+
+format: true

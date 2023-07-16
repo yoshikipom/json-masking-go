@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -13,9 +14,9 @@ import (
 const defaltmaskingValue = "*"
 
 type Masking struct {
-	deniedKeySet map[string]struct{}
-	useRegex     bool
-	format       bool
+	deniedJsonPathList []jsonPath
+	useRegex           bool
+	format             bool
 }
 
 type MaskingInput struct {
@@ -24,17 +25,32 @@ type MaskingInput struct {
 	Format        bool
 }
 
-func New(input *MaskingInput) *Masking {
-	keySet := make(map[string]struct{})
-	for _, deniedKey := range input.DeniedKeyList {
-		keySet[deniedKey] = struct{}{}
+type jsonPath []string
+
+func (j jsonPath) String() string {
+	arr := []string{}
+	for i, str := range j {
+		if i == 0 || !strings.HasPrefix(str, "[") {
+			arr = append(arr, str)
+		} else {
+			arr[len(arr)-1] += str
+		}
 	}
-	return &Masking{
-		deniedKeySet: keySet,
-		useRegex:     input.UseRegex,
-		format:       input.Format,
+	return strings.Join(arr, ".")
+}
+
+func New(input *MaskingInput) *Masking {
+	deniedJsonPathList := []jsonPath{}
+	for _, k := range input.DeniedKeyList {
+		deniedJsonPath := split(k)
+		deniedJsonPathList = append(deniedJsonPathList, jsonPath(deniedJsonPath))
 	}
 
+	return &Masking{
+		deniedJsonPathList: deniedJsonPathList,
+		useRegex:           input.UseRegex,
+		format:             input.Format,
+	}
 }
 
 func NewWithFile(configFile string) *Masking {
@@ -44,15 +60,27 @@ func NewWithFile(configFile string) *Masking {
 	}
 	c := config.GetConfig()
 
-	keySet := make(map[string]struct{})
-	for _, deniedKey := range c.DeniedKeyList {
-		keySet[deniedKey] = struct{}{}
+	deniedJsonPathList := []jsonPath{}
+	for _, k := range c.DeniedKeyList {
+		deniedJsonPath := split(k)
+		deniedJsonPathList = append(deniedJsonPathList, deniedJsonPath)
 	}
+
 	return &Masking{
-		deniedKeySet: keySet,
-		useRegex:     c.UseRegex,
-		format:       c.Format,
+		deniedJsonPathList: deniedJsonPathList,
+		useRegex:           c.UseRegex,
+		format:             c.Format,
 	}
+}
+
+func split(key string) jsonPath {
+	re := regexp.MustCompile(`(\[.*?\])|([^.\[\]]+)`)
+	matches := re.FindAllString(key, -1)
+
+	var result []string
+	result = append(result, matches...)
+
+	return result
 }
 
 func (m *Masking) Replace(body []byte) []byte {
@@ -62,7 +90,7 @@ func (m *Masking) Replace(body []byte) []byte {
 		panic(err)
 	}
 
-	m.processData("", &data)
+	m.processData(jsonPath{}, &data)
 
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -81,11 +109,11 @@ func (m *Masking) Replace(body []byte) []byte {
 	}
 }
 
-func (m *Masking) processData(jsonPath string, node *interface{}) interface{} {
+func (m *Masking) processData(path jsonPath, node *interface{}) interface{} {
 	switch n := (*node).(type) {
 	case map[string]interface{}:
 		for k, v := range n {
-			newPath := fmt.Sprintf("%s.%s", jsonPath, k)
+			newPath := append(path, k)
 			result := m.processData(newPath, &v)
 			if result != nil {
 				n[k] = result
@@ -93,16 +121,15 @@ func (m *Masking) processData(jsonPath string, node *interface{}) interface{} {
 		}
 	case []interface{}:
 		for i, v := range n {
-			newPath := fmt.Sprintf("%s[%d]", jsonPath, i)
+			newPath := append(path, fmt.Sprintf("[%d]", i))
 			result := m.processData(newPath, &v)
 			if result != nil {
 				n[i] = result
 			}
 		}
 	default:
-		jsonPath = strings.TrimPrefix(jsonPath, ".")
 		// fmt.Println(jsonPath)
-		if m.denied(jsonPath) {
+		if m.denied(path) {
 			return defaltmaskingValue
 		}
 		return nil
@@ -110,17 +137,33 @@ func (m *Masking) processData(jsonPath string, node *interface{}) interface{} {
 	return nil
 }
 
-func (m *Masking) denied(jsonPath string) bool {
+func (m *Masking) denied(path jsonPath) bool {
 	if m.useRegex {
-		for k := range m.deniedKeySet {
-			r := regexp.MustCompile(k)
-			if r.MatchString(jsonPath) {
-				return true
-			}
-		}
-		return false
+		return m.regexMatch(path)
 	} else {
-		_, ok := m.deniedKeySet[jsonPath]
-		return ok
+		return m.match(path)
 	}
+}
+
+func (m *Masking) regexMatch(path jsonPath) bool {
+	for _, deniedPath := range m.deniedJsonPathList {
+		r := regexp.MustCompile(deniedPath.String())
+		if r.MatchString(path.String()) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Masking) match(path jsonPath) bool {
+	for _, deniedPath := range m.deniedJsonPathList {
+		l := len(deniedPath)
+		if len(path) < l {
+			continue
+		}
+		if reflect.DeepEqual(deniedPath, path[:l]) {
+			return true
+		}
+	}
+	return false
 }
