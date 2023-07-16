@@ -49,12 +49,12 @@ to quickly create a Cobra application.`,
 
 		var m *masking.Masking
 		if configFile == "" {
-			input := &masking.MaskingInput{
+			config := &masking.MaskingConfig{
 				DeniedKeyList: denyList,
 				UseRegex:      useRegex,
 				Format:        format,
 			}
-			m = masking.New(input)
+			m = masking.New(config)
 		} else {
 			m = masking.NewWithFile(configFile)
 		}

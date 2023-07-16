@@ -19,7 +19,7 @@ type Masking struct {
 	format             bool
 }
 
-type MaskingInput struct {
+type MaskingConfig struct {
 	DeniedKeyList []string
 	UseRegex      bool
 	Format        bool
@@ -43,17 +43,17 @@ func (j jsonPath) String() string {
 	return result
 }
 
-func New(input *MaskingInput) *Masking {
+func New(config *MaskingConfig) *Masking {
 	deniedJsonPathList := []jsonPath{}
-	for _, k := range input.DeniedKeyList {
+	for _, k := range config.DeniedKeyList {
 		deniedJsonPath := split(k)
 		deniedJsonPathList = append(deniedJsonPathList, jsonPath(deniedJsonPath))
 	}
 
 	return &Masking{
 		deniedJsonPathList: deniedJsonPathList,
-		useRegex:           input.UseRegex,
-		format:             input.Format,
+		useRegex:           config.UseRegex,
+		format:             config.Format,
 	}
 }
 
