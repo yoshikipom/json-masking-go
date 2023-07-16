@@ -28,15 +28,19 @@ type MaskingInput struct {
 type jsonPath []string
 
 func (j jsonPath) String() string {
-	arr := []string{}
-	for i, str := range j {
-		if i == 0 || !strings.HasPrefix(str, "[") {
-			arr = append(arr, str)
+	if len(j) == 0 {
+		return ""
+	}
+
+	result := j[0]
+	for i, str := range j[1:] {
+		if i == 0 || strings.HasPrefix(str, "[") || strings.HasSuffix(result, "]") {
+			result += str
 		} else {
-			arr[len(arr)-1] += str
+			result += "." + str
 		}
 	}
-	return strings.Join(arr, ".")
+	return result
 }
 
 func New(input *MaskingInput) *Masking {
