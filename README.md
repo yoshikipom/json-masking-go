@@ -1,5 +1,5 @@
 # About
-`json-masking-go` is a tool to hide specific fields (for example personal information) in JSON for logging, communicaiton etc.
+[json-masking-go](https://pkg.go.dev/github.com/yoshikipom/json-masking-go) is a tool to hide specific fields (for example personal information) in JSON for logging, communicaiton etc.
 
 - CLI support
   - input JSON -> from stdin
